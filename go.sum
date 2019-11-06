@@ -12,6 +12,10 @@ github.com/bcscb8/wagon v0.0.0-20191106074146-1e4365632c59 h1:ICfvdleLiQokKPTyxb
 github.com/bcscb8/wagon v0.0.0-20191106074146-1e4365632c59/go.mod h1:5+b/MBYkclRZngKF5s6qrgWxSLgE9F5dFdO1hAueZLc=
 github.com/bcscb8/wagon v0.0.0-20191106075845-c585c5e0ebc2 h1:Vato4ZExuNJBSjkAVA/I7ddvk2na1HaeSps/mIGuk70=
 github.com/bcscb8/wagon v0.0.0-20191106075845-c585c5e0ebc2/go.mod h1:5+b/MBYkclRZngKF5s6qrgWxSLgE9F5dFdO1hAueZLc=
+github.com/bcscb8/wagon v0.0.0-20191106123311-f83494e83a6e h1:5mWClP9zhXLxKKoyVLPan2IX+QlQ5mQHv0orse2Pq6c=
+github.com/bcscb8/wagon v0.0.0-20191106123311-f83494e83a6e/go.mod h1:5+b/MBYkclRZngKF5s6qrgWxSLgE9F5dFdO1hAueZLc=
+github.com/bcscb8/wagon v0.0.0-20191106131505-42dd886d8414 h1:jvjzQzQG0X67N+2DdYO5fPULr3+q7POLIUvFCFC+Slg=
+github.com/bcscb8/wagon v0.0.0-20191106131505-42dd886d8414/go.mod h1:5+b/MBYkclRZngKF5s6qrgWxSLgE9F5dFdO1hAueZLc=
 github.com/edsrzf/mmap-go v1.0.0 h1:CEBF7HpRnUCSJgGUb5h1Gm7e3VkmVDrR8lvWVLtrOFw=
 github.com/edsrzf/mmap-go v1.0.0/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
 github.com/twitchyliquid64/golang-asm v0.0.0-20190126203739-365674df15fc h1:RTUQlKzoZZVG3umWNzOYeFecQLIh+dbxXvJp1zPQJTI=

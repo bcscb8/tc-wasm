@@ -11,15 +11,15 @@ package vm
 
 typedef struct {
 	void *ctx;
-	uint64_t gas_limit;
+	uint64_t gas;
 	uint64_t gas_used;
 	int32_t pages;
 	uint8_t *mem;
 } vm_t;
 
-static inline void get_gas(vm_t *vm, uint64_t *gas_used, uint64_t *gas_limit) {
+static inline void get_gas(vm_t *vm, uint64_t *gas_used, uint64_t *gas) {
 	*gas_used = vm->gas_used;
-	*gas_limit = vm->gas_limit;
+	*gas = vm->gas;
 }
 
 static inline void update_mem(vm_t *vm, int32_t pages, void *mem) {
@@ -51,25 +51,27 @@ static uint32_t call_main(void *__ptrs) {
 	uint64_t *data = (uint64_t *)(_ptrs[2]);
 	void *mem = _ptrs[3];
 	uint64_t *gas_used = (uint64_t *)(_ptrs[4]);
-	uint64_t *gas_limit = (uint64_t *)(_ptrs[5]);
+	uint64_t *gas = (uint64_t *)(_ptrs[5]);
 
 	vm_t vm;
 	vm.ctx = ctx;
-	vm.gas_limit = data[0];
-	vm.gas_used = 0;
-	vm.pages = (int32_t)(data[1]);
+	vm.gas = data[0];
+	vm.gas_used = data[1];
+	vm.pages = (int32_t)(data[2]);
 	vm.mem = (uint8_t *)(mem);
 
-	uint32_t action = (uint32_t)(data[2]);
-	uint32_t args = (uint32_t)(data[3]);
+	uint32_t action = (uint32_t)(data[3]);
+	uint32_t args = (uint32_t)(data[4]);
 
 	tc_main_t _main = get_main_func(dl);
 	if (_main == NULL) {
 		return 0;
 	}
-	printf("call_main begin\n");
+
+	// printf("call_main begin: gas:%lu, gas_used:%lu\n", vm.gas, vm.gas_used);
 	uint32_t ret = _main(&vm, action, args);
-	get_gas(&vm, gas_used, gas_limit);
+
+	get_gas(&vm, gas_used, gas);
 	return ret;
 }
 
@@ -165,10 +167,10 @@ func (native *Native) RunCMain(action, args string) (uint64, error) {
 		return 0, err
 	}
 
-	var gasLimit uint64
+	var gas uint64
 	var gasUsed uint64
 	pages := uint64(mem.HeapSize() / wasmPageSize)
-	data := []uint64{eng.gas, pages, actionP, argsP}
+	data := []uint64{eng.gas, eng.gasUsed, pages, actionP, argsP}
 
 	ptrs := make([]uintptr, 6)
 	ptrs[0] = uintptr(native.dl)
@@ -176,11 +178,11 @@ func (native *Native) RunCMain(action, args string) (uint64, error) {
 	ptrs[2] = uintptr(unsafe.Pointer(&data[0]))
 	ptrs[3] = uintptr(unsafe.Pointer(&mem.Memory[0]))
 	ptrs[4] = uintptr(unsafe.Pointer(&gasUsed))
-	ptrs[5] = uintptr(unsafe.Pointer(&gasLimit))
+	ptrs[5] = uintptr(unsafe.Pointer(&gas))
 
 	ret := C.call_main(unsafe.Pointer(&ptrs[0]))
-	native.updateGas(gasLimit, gasUsed)
-	native.app.logger.Debug("[Native] RunCMain done", "app", native.name(), "ret", ret, "gas_limit", gasLimit, "gas_used", gasUsed)
+	native.updateGas(gas, gasUsed)
+	native.app.logger.Debug("[Native] RunCMain done", "app", native.name(), "ret", ret, "gas", gas, "gas_used", gasUsed)
 	return uint64(ret), nil
 }
 
@@ -209,10 +211,9 @@ func (native *Native) getFuncByName(name string) EnvFunc {
 	return native.envTable().GetFuncByName(name)
 }
 
-func (native *Native) updateGas(gasLimit, gasUsed uint64) {
+func (native *Native) updateGas(gas, gasUsed uint64) {
 	eng := native.engine()
-	// fmt.Printf("[Native] updateGas: %d:%d --> %d:%d\n", eng.gas, eng.gasUsed, gasLimit, gasUsed)
-	eng.gas = gasLimit - gasUsed
+	eng.gas = gas
 	eng.gasUsed = gasUsed
 }
 
@@ -221,12 +222,8 @@ func (native *Native) useGas(cost uint64) bool {
 	return eng.UseGas(cost)
 }
 
-func (native *Native) gasUsed() uint64 {
-	eng := native.engine()
-	return eng.gasUsed
-}
-
-func updateGas(cvm *C.vm_t, gasUsed uint64) {
+func updateGas(cvm *C.vm_t, gas, gasUsed uint64) {
+	cvm.gas = C.uint64_t(gas)
 	cvm.gas_used = C.uint64_t(gasUsed)
 }
 
@@ -246,7 +243,7 @@ func GoPanic(cvm *C.vm_t, cmsg *C.char) {
 	native := (*Native)(cvm.ctx)
 	msg := C.GoString(cmsg)
 
-	native.updateGas(uint64(cvm.gas_limit), uint64(cvm.gas_used))
+	native.updateGas(uint64(cvm.gas), uint64(cvm.gas_used))
 	native.Printf("[GoPanic] app:%s, msg:%s", native.name(), msg)
 
 	switch msg {
@@ -265,7 +262,7 @@ func GoRevert(cvm *C.vm_t, cmsg *C.char) {
 	native := (*Native)(cvm.ctx)
 	msg := C.GoString(cmsg)
 
-	native.updateGas(uint64(cvm.gas_limit), uint64(cvm.gas_used))
+	native.updateGas(uint64(cvm.gas), uint64(cvm.gas_used))
 	native.Printf("[GoRevert] app:%s, msg:%s", native.name(), msg)
 	panic(ErrExecutionReverted)
 }
@@ -276,7 +273,7 @@ func GoExit(cvm *C.vm_t, cstatus C.int32_t) {
 	native := (*Native)(cvm.ctx)
 	status := int32(cstatus)
 
-	native.updateGas(uint64(cvm.gas_limit), uint64(cvm.gas_used))
+	native.updateGas(uint64(cvm.gas), uint64(cvm.gas_used))
 	native.Printf("[GoExit] app:%s, status:%d", native.name(), status)
 	if status == 0 {
 		panic(ErrExecutionExitSucc)
@@ -290,12 +287,12 @@ func GoExit(cvm *C.vm_t, cstatus C.int32_t) {
 func GoGrowMemory(cvm *C.vm_t, pages C.int32_t) {
 	native := (*Native)(cvm.ctx)
 	mem := native.memory()
+
 	if err := mem.GrowMem(int(pages) * wasmPageSize); err != nil {
+		native.updateGas(uint64(cvm.gas), uint64(cvm.gas_used))
 		native.Printf("[GoGrowMem] fail: app:%s, pages:%d, err:%s", native.name(), pages, err)
 		panic(err)
 	}
-
-	native.updateGas(uint64(cvm.gas_limit), uint64(cvm.gas_used))
 	C.update_mem(cvm, C.int32_t(pages), unsafe.Pointer(&mem.Memory[0]))
 	native.Printf("[GoGrowMemory] ok: app:%s, pages:%d", native.name(), int(pages))
 }
@@ -311,7 +308,7 @@ func GoFunc(cvm *C.vm_t, cname *C.char, cArgn C.int32_t, cArgs *C.uint64_t) uint
 	index := int64(-1)
 	name := C.GoString(cname)
 
-	native.updateGas(uint64(cvm.gas_limit), uint64(cvm.gas_used))
+	native.updateGas(uint64(cvm.gas), uint64(cvm.gas_used))
 	envFunc := native.getFuncByName(name)
 	if envFunc == nil {
 		native.Printf("[GoFunc] Not Exist: app:%s, name:%s", native.name(), name)
@@ -327,8 +324,8 @@ func GoFunc(cvm *C.vm_t, cname *C.char, cArgn C.int32_t, cArgs *C.uint64_t) uint
 	}
 
 	if !native.useGas(cost) {
-		native.Printf("[GoFunc] OutOfGas: app:%s, name:%s, gas_used:%d, gas_limit:%d, cost:%d",
-			native.name(), name, eng.gasUsed, uint64(cvm.gas_limit), cost)
+		native.Printf("[GoFunc] OutOfGas: app:%s, name:%s, gas_used:%d, gas:%d, cost:%d",
+			native.name(), name, eng.gasUsed, eng.gas, cost)
 		currentFee := eng.GetFee() - preFee
 		realCost := cost - currentFee
 		eng.CalFee(realCost, currentFee)
@@ -341,7 +338,7 @@ func GoFunc(cvm *C.vm_t, cname *C.char, cArgn C.int32_t, cArgs *C.uint64_t) uint
 		panic(err)
 	}
 
-	updateGas(cvm, native.gasUsed())
+	updateGas(cvm, eng.gas, eng.gasUsed)
 	updateMem(cvm, native)
 	native.app.logger.Debug("[GoFunc] Call() ok", "app", native.name(), "name", name, "cost", cost)
 	return ret
