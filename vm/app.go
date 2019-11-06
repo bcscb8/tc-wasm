@@ -42,23 +42,27 @@ type APP struct {
 	IsPreRun  bool
 	EntryFunc string
 
+	native *Native
+
 	result interface{}
 }
 
 // Clone just copy
 func (app *APP) Clone(eng *Engine) *APP {
+	RefreshApp(app)
 	vm := app.VM.Clone(eng)
 	vm.RecoverPanic = true
-	return &APP{
+	newApp := &APP{
 		logger:    app.logger,
 		Name:      app.Name,
 		Module:    app.Module,
 		Eng:       eng,
 		VM:        vm,
 		VmProcess: exec.NewProcess(vm),
-		//VM:     app.VM.Clone(eng),
 		EntryFunc: app.EntryFunc,
 	}
+	newApp.native = GetNative(newApp)
+	return newApp
 }
 
 // NewApp new wasm app module
@@ -96,6 +100,11 @@ func NewApp(name string, code []byte, eng *Engine, debug bool, logger log.Logger
 	app.VM = vm
 
 	return app, nil
+}
+
+// Printf --
+func (app *APP) Printf(fmt string, args ...interface{}) {
+	app.logger.Println(fmt, args...)
 }
 
 // GetStartFunction Get Function Index of Start function.
@@ -181,6 +190,10 @@ func ParseInitArgsAndCode(data []byte) ([]byte, []byte, error) {
 // Run execute AppEntry Function
 // the input format should be "action | args"
 func (app *APP) Run(action, args string) (uint64, error) {
+	if !app.IsPreRun && app.native != nil {
+		return app.native.RunCMain(action, args)
+	}
+
 	if app.IsPreRun {
 		return app.RunF(-1) // already set
 	}

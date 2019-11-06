@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"runtime/debug"
 	"sync"
 
 	"github.com/xunleichain/tc-wasm/mock/log"
@@ -24,6 +25,8 @@ func init() {
 
 type StateDB interface {
 	GetContractCode([]byte) []byte
+	GetContractInfo([]byte) []byte
+	SetContractInfo([]byte, []byte)
 }
 
 type Engine struct {
@@ -118,7 +121,6 @@ func (eng *Engine) Trace(msg string, v ...interface{}) {
 }
 
 func (eng *Engine) NewApp(name string, code []byte, debug bool) (*APP, error) {
-
 	if app := eng.AppByName(name); app != nil {
 		return app.Clone(eng), nil
 	}
@@ -189,10 +191,13 @@ func (eng *Engine) run(app *APP, action, args string) (ret uint64, err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			eng.logger.Debug("[Engine] run recover", "frame_index", eng.FrameIndex, "running_app", eng.runningFrame.Name)
+			eng.logger.Debug("[Engine] run recover", "frame_index", eng.FrameIndex, "running_app", eng.runningFrame.Name, "bt", string(debug.Stack()))
 			switch e := r.(type) {
 			case error:
 				err = e
+				if err == ErrExecutionExitSucc {
+					err = nil
+				}
 			default:
 				err = fmt.Errorf("exec: %v", e)
 			}
