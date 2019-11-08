@@ -142,15 +142,8 @@ func (s *AotService) doCheck(app *APP) error {
 		return nil
 	}
 
-	stateDB := app.Eng.State
-	infoBytes := stateDB.GetContractInfo(types.HexToAddress(app.Name).Bytes())
-	if len(infoBytes) == 0 {
-		return s.doWork(app)
-	}
-
-	var info ContractInfo
-	if err := json.Unmarshal(infoBytes, &info); err != nil {
-		app.Printf("[AotService] json.Unmarshal ContractInfo fail: app:%s, err:%s", app.Name, err)
+	info := s.getContractInfo(app)
+	if info == nil {
 		return s.doWork(app)
 	}
 
@@ -201,7 +194,7 @@ func (s *AotService) doCheck(app *APP) error {
 		return s.doWork(app)
 	}
 
-	return s.doLoad(app, &info)
+	return s.doLoad(app, info)
 }
 
 func (s *AotService) doWork(app *APP) error {
@@ -261,6 +254,14 @@ func (s *AotService) doCompile(app *APP) (*ContractInfo, error) {
 	return &info, nil
 }
 
+var (
+	contractInfoPrefix = []byte("cfso:")
+)
+
+const (
+	contractInfoPrefixLen = 5
+)
+
 func (s *AotService) updateContractInfo(app *APP, info *ContractInfo) {
 	if info.Err != "" {
 		s.black[app.Name] = struct{}{}
@@ -272,8 +273,31 @@ func (s *AotService) updateContractInfo(app *APP, info *ContractInfo) {
 		return
 	}
 
+	key := make([]byte, types.AddressLength+contractInfoPrefixLen)
+	copy(key[:contractInfoPrefixLen], contractInfoPrefix)
+	copy(key[contractInfoPrefixLen:], types.HexToAddress(app.Name).Bytes())
+
 	stateDB := app.Eng.State
-	stateDB.SetContractInfo(types.HexToAddress(app.Name).Bytes(), data)
+	stateDB.SetContractInfo(key, data)
+}
+
+func (s *AotService) getContractInfo(app *APP) *ContractInfo {
+	key := make([]byte, types.AddressLength+contractInfoPrefixLen)
+	copy(key[:contractInfoPrefixLen], contractInfoPrefix)
+	copy(key[contractInfoPrefixLen:], types.HexToAddress(app.Name).Bytes())
+
+	stateDB := app.Eng.State
+	data := stateDB.GetContractInfo(key)
+	if len(data) == 0 {
+		return nil
+	}
+
+	var info ContractInfo
+	if err := json.Unmarshal(data, &info); err != nil {
+		app.Printf("[AotService] json.Unmarshal ContractInfo fail: app:%s, err:%s", app.Name, err)
+		return nil
+	}
+	return &info
 }
 
 func init() {
