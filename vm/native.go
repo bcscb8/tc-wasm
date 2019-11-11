@@ -187,8 +187,8 @@ func (native *Native) RunCMain(action, args string) (uint64, error) {
 }
 
 // Printf --
-func (native *Native) Printf(fmt string, args ...interface{}) {
-	native.logger.Println(fmt, args...)
+func (native *Native) Printf(f string, args ...interface{}) {
+	native.logger.Debug(fmt.Sprintf(f, args...))
 }
 
 func (native *Native) name() string {

@@ -305,8 +305,11 @@ func init() {
 	if path == "" {
 		path = "/tmp/aots"
 	}
-	os.MkdirAll(path, 0775)
-	fmt.Printf("%s = %s\n", TCVM_AOTS_ROOT, path)
+	if err := os.MkdirAll(path, 0775); err != nil {
+		fmt.Printf("%s = %s, MkdirAll fail: %s\n", TCVM_AOTS_ROOT, path, err)
+	} else {
+		fmt.Printf("%s = %s, MkdirAll ok\n", TCVM_AOTS_ROOT, path)
+	}
 
 	keepSource := true
 	if os.Getenv(TCVM_AOTS_KEEP_CSOURCE) == "0" {

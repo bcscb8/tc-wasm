@@ -103,8 +103,8 @@ func NewApp(name string, code []byte, eng *Engine, debug bool, logger log.Logger
 }
 
 // Printf --
-func (app *APP) Printf(fmt string, args ...interface{}) {
-	app.logger.Println(fmt, args...)
+func (app *APP) Printf(f string, args ...interface{}) {
+	app.logger.Info(fmt.Sprintf(f, args...))
 }
 
 // GetStartFunction Get Function Index of Start function.
