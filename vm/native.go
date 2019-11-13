@@ -308,7 +308,9 @@ func GoFunc(cvm *C.vm_t, cname *C.char, cArgn C.int32_t, cArgs *C.uint64_t) uint
 	eng := native.engine()
 
 	args := make([]uint64, int(cArgn))
-	C.copy_args((*C.uint64_t)(unsafe.Pointer(&args[0])), cArgs, cArgn)
+	if len(args) > 0 {
+		C.copy_args((*C.uint64_t)(unsafe.Pointer(&args[0])), cArgs, cArgn)
+	}
 	index := int64(-1)
 	name := C.GoString(cname)
 
