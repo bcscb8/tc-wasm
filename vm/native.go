@@ -15,6 +15,10 @@ typedef struct {
 	uint64_t gas_used;
 	int32_t pages;
 	uint8_t *mem;
+
+	// internal temp member
+	void *_ff;
+	uint32_t _findex;
 } vm_t;
 
 static inline void get_gas(vm_t *vm, uint64_t *gas_used, uint64_t *gas) {
