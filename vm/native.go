@@ -83,6 +83,7 @@ static uint32_t call_main(void *__ptrs) {
 import "C"
 import (
 	"fmt"
+	"runtime/debug"
 	"time"
 	"unsafe"
 
@@ -158,7 +159,7 @@ func (native *Native) hasCMain() bool {
 }
 
 // RunCMain --
-func (native *Native) RunCMain(action, args string) (uint64, error) {
+func (native *Native) RunCMain(action, args string) (ret uint64, err error) {
 	eng := native.engine()
 	mem := native.memory()
 
@@ -184,10 +185,25 @@ func (native *Native) RunCMain(action, args string) (uint64, error) {
 	ptrs[4] = uintptr(unsafe.Pointer(&gasUsed))
 	ptrs[5] = uintptr(unsafe.Pointer(&gas))
 
-	ret := C.call_main(unsafe.Pointer(&ptrs[0]))
+	defer func() {
+		if r := recover(); r != nil {
+			eng.logger.Debug("[Native] run recover", "frame_index", eng.FrameIndex, "running_app", eng.runningFrame.Name, "bt", string(debug.Stack()))
+			switch e := r.(type) {
+			case error:
+				err = e
+				if err == ErrExecutionExitSucc {
+					err = nil
+				}
+			default:
+				err = fmt.Errorf("exec: %v", e)
+			}
+		}
+	}()
+
+	iret := C.call_main(unsafe.Pointer(&ptrs[0]))
 	native.updateGas(gas, gasUsed)
-	native.app.logger.Debug("[Native] RunCMain done", "app", native.name(), "ret", ret, "gas", gas, "gas_used", gasUsed)
-	return uint64(ret), nil
+	native.app.logger.Debug("[Native] RunCMain done", "app", native.name(), "ret", iret, "gas", gas, "gas_used", gasUsed)
+	return uint64(iret), nil
 }
 
 // Printf --

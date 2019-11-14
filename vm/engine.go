@@ -195,9 +195,6 @@ func (eng *Engine) run(app *APP, action, args string) (ret uint64, err error) {
 			switch e := r.(type) {
 			case error:
 				err = e
-				if err == ErrExecutionExitSucc {
-					err = nil
-				}
 			default:
 				err = fmt.Errorf("exec: %v", e)
 			}

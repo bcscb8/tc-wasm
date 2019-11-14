@@ -236,6 +236,7 @@ func (s *AotService) doCompile(app *APP) (*ContractInfo, error) {
 
 	// exec.SetCGenLogger(app.logger) // for debug
 	ctx := exec.NewCGenContext(app.VM, s.keepCSource)
+	ctx.EnableComment(true)
 	code, err := ctx.Generate()
 	if err != nil {
 		info.Err = "Generate C Code Fail"
