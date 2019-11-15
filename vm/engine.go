@@ -72,6 +72,17 @@ func (eng *Engine) Logger() log.Logger {
 	return eng.logger
 }
 
+func (eng *Engine) RemoveCache(name string) {
+	_app, ok := AppCache.Load(name)
+	if !ok {
+		return
+	}
+
+	app := _app.(*APP)
+	DeleteNative(app)
+	AppCache.Delete(name)
+}
+
 func (eng *Engine) AppByName(name string) *APP {
 	app, _ := eng.AppCache.Load(name)
 	if app != nil {

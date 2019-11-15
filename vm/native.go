@@ -83,6 +83,7 @@ static uint32_t call_main(void *__ptrs) {
 import "C"
 import (
 	"fmt"
+	"os"
 	"runtime/debug"
 	"time"
 	"unsafe"
@@ -135,6 +136,14 @@ func (native *Native) close() {
 		C.dlclose(native.dl)
 		native.dl = nil
 	}
+}
+
+func (native *Native) remove() {
+	if native.dl != nil {
+		C.dlclose(native.dl)
+		native.dl = nil
+	}
+	os.Remove(native.file)
 }
 
 func (native *Native) clone(app *APP) *Native {

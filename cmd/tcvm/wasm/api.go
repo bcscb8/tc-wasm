@@ -725,7 +725,8 @@ func tcSelfDestruct(eng *vm.Engine, index int64, args []uint64) (uint64, error) 
 	//suicideToken(eng, addr, to)
 	db.Suicide(addr)
 	//delete cache
-	eng.AppCache.Delete(addr.String())
+	eng.RemoveCache(addr.String())
+	// eng.AppCache.Delete(addr.String())
 
 	return 0, nil
 }

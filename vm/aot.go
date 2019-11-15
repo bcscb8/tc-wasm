@@ -58,6 +58,11 @@ func GetNative(app *APP) *Native {
 	return aots.getNative(app)
 }
 
+// DeleteNative --
+func DeleteNative(app *APP) {
+	aots.deleteNative(app)
+}
+
 // StopAots --
 func StopAots() {
 	aots.exit <- struct{}{}
@@ -90,6 +95,20 @@ func (s *AotService) getNative(app *APP) *Native {
 	return native.clone(app)
 }
 
+func (s *AotService) deleteNative(app *APP) {
+	s.lock.Lock()
+
+	native := s.succ[app.Name]
+	if native != nil {
+		delete(s.succ, app.Name)
+		native.remove()
+	} else {
+		delete(s.black, app.Name)
+	}
+
+	s.lock.Unlock()
+}
+
 func (s *AotService) loop() {
 	d := time.Duration(time.Minute * 5)
 	t := time.NewTimer(d)
@@ -97,11 +116,12 @@ func (s *AotService) loop() {
 	for {
 		select {
 		case app := <-s.refresh:
+			s.lock.Lock()
 			if _, ok := s.black[app.Name]; ok {
+				s.lock.Unlock()
 				continue
 			}
 
-			s.lock.Lock()
 			n := s.succ[app.Name]
 			s.lock.Unlock()
 
@@ -155,7 +175,9 @@ func (s *AotService) doCheck(app *APP) error {
 
 	if info.Err != "" {
 		app.Printf("[AotService] ContractInfo Has Err: app:%s, err:%s", app.Name, info.Err)
+		s.lock.Lock()
 		s.black[app.Name] = struct{}{}
+		s.lock.Unlock()
 		return fmt.Errorf(info.Err)
 	}
 
@@ -234,7 +256,7 @@ func (s *AotService) doCompile(app *APP) (*ContractInfo, error) {
 		Err:  "",
 	}
 
-	// exec.SetCGenLogger(app.logger) // for debug
+	exec.SetCGenLogger(app.logger) // for debug
 	ctx := exec.NewCGenContext(app.VM, s.keepCSource)
 
 	// @Todo: for debug
@@ -270,7 +292,9 @@ const (
 
 func (s *AotService) updateContractInfo(app *APP, info *ContractInfo) {
 	if info.Err != "" {
+		s.lock.Lock()
 		s.black[app.Name] = struct{}{}
+		s.lock.Unlock()
 	}
 
 	data, err := json.Marshal(info)
