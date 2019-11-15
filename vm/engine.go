@@ -23,6 +23,17 @@ func init() {
 	AppCache = new(sync.Map)
 }
 
+func RemoveCache(name string) {
+	_app, ok := AppCache.Load(name)
+	if !ok {
+		return
+	}
+
+	app := _app.(*APP)
+	DeleteNative(app)
+	AppCache.Delete(name)
+}
+
 type StateDB interface {
 	GetContractCode([]byte) []byte
 	GetContractInfo([]byte) []byte
@@ -73,14 +84,7 @@ func (eng *Engine) Logger() log.Logger {
 }
 
 func (eng *Engine) RemoveCache(name string) {
-	_app, ok := AppCache.Load(name)
-	if !ok {
-		return
-	}
-
-	app := _app.(*APP)
-	DeleteNative(app)
-	AppCache.Delete(name)
+	RemoveCache(name)
 }
 
 func (eng *Engine) AppByName(name string) *APP {
