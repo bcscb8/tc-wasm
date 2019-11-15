@@ -100,6 +100,7 @@ type Native struct {
 	file   string
 	dl     unsafe.Pointer
 	t      time.Time
+	ret    uint64
 }
 
 // NewNative --
@@ -108,7 +109,7 @@ func NewNative(app *APP, file string) (*Native, error) {
 	handle, err := C.dlopen(cfile, C.RTLD_LAZY|C.RTLD_LOCAL)
 	C.free(unsafe.Pointer(cfile))
 	if handle == nil {
-		app.logger.Info("C.dlopen fail", "file", file, "err", err)
+		app.logger.Info("[Native] C.dlopen fail", "file", file, "err", err)
 		return nil, fmt.Errorf("C.dlopen")
 	}
 
@@ -187,11 +188,12 @@ func (native *Native) RunCMain(action, args string) (ret uint64, err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			eng.logger.Debug("[Native] run recover", "frame_index", eng.FrameIndex, "running_app", eng.runningFrame.Name, "bt", string(debug.Stack()))
+			eng.logger.Debug("[Native] RunCMain recover", "frame_index", eng.FrameIndex, "running_app", eng.runningFrame.Name, "err", err, "bt", string(debug.Stack()))
 			switch e := r.(type) {
 			case error:
 				err = e
-				if err == ErrExecutionExitSucc {
+				if err == ErrExecutionExit {
+					ret = native.ret
 					err = nil
 				}
 			default:
@@ -295,11 +297,8 @@ func GoExit(cvm *C.vm_t, cstatus C.int32_t) {
 
 	native.updateGas(uint64(cvm.gas), uint64(cvm.gas_used))
 	native.Printf("[GoExit] app:%s, status:%d", native.name(), status)
-	if status == 0 {
-		panic(ErrExecutionExitSucc)
-	} else {
-		panic(ErrExecutionExitFail)
-	}
+	native.ret = uint64(status)
+	panic(ErrExecutionExit)
 }
 
 // GoGrowMemory --

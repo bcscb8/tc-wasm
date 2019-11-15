@@ -30,8 +30,7 @@ var (
 	ErrContractRequire          = errors.New("vm: contract require fail")
 	ErrContractAssert           = errors.New("vm: contract assert fail")
 	ErrOutOfGas                 = errors.New("vm: out of gas")
-	ErrExecutionExitFail        = errors.New("vm: execution exit failure")
-	ErrExecutionExitSucc        = errors.New("vm: execution exit success")
+	ErrExecutionExit            = errors.New("vm: execution exit")
 )
 
 type Error struct {
