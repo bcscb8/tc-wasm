@@ -23,9 +23,10 @@ type AotService struct {
 	exit        chan struct{}
 	refresh     chan *APP
 
-	black map[string]struct{}
-	succ  map[string]*Native
-	lock  sync.Mutex
+	black    map[string]struct{}
+	succ     map[string]*Native
+	onDelete map[string]*Native
+	lock     sync.Mutex
 }
 
 // Env Variable
@@ -42,7 +43,8 @@ func NewAotService(path string, keepSrouce bool) *AotService {
 		exit:        make(chan struct{}),
 		refresh:     make(chan *APP, 8),
 		black:       make(map[string]struct{}),
-		succ:        make(map[string]*Native, 16),
+		succ:        make(map[string]*Native, 32),
+		onDelete:    make(map[string]*Native, 8),
 	}
 
 	return &s
@@ -79,11 +81,9 @@ type ContractInfo struct {
 }
 
 func (s *AotService) checkApp(app *APP) {
-	if app.native == nil {
-		select {
-		case s.refresh <- app:
-		default:
-		}
+	select {
+	case s.refresh <- app:
+	default:
 	}
 }
 
@@ -100,24 +100,33 @@ func (s *AotService) deleteNative(app *APP) {
 
 	native := s.succ[app.Name]
 	if native != nil {
-		delete(s.succ, app.Name)
+		s.onDelete[app.Name] = native
+		s.succ[app.Name] = nil
 		native.remove()
-	} else {
-		delete(s.black, app.Name)
 	}
 
 	s.lock.Unlock()
 }
 
 func (s *AotService) loop() {
-	d := time.Duration(time.Minute * 5)
-	t := time.NewTimer(d)
+	// idle check timer
+	d1 := time.Duration(time.Minute * 5)
+	t1 := time.NewTimer(d1)
+
+	// onDelete timer
+	d2 := time.Duration(time.Second * 10)
+	t2 := time.NewTimer(d2)
 
 	for {
 		select {
 		case app := <-s.refresh:
 			s.lock.Lock()
 			if _, ok := s.black[app.Name]; ok {
+				s.lock.Unlock()
+				continue
+			}
+
+			if _, ok := s.onDelete[app.Name]; ok {
 				s.lock.Unlock()
 				continue
 			}
@@ -129,7 +138,7 @@ func (s *AotService) loop() {
 				s.doCheck(app)
 			}
 
-		case <-t.C:
+		case <-t1.C:
 			cnt := 0
 			now := time.Now()
 			target := time.Unix(now.Unix()-3600, 0) // one hour
@@ -137,10 +146,12 @@ func (s *AotService) loop() {
 			s.lock.Lock()
 			for name, native := range s.succ {
 				if native.t.Before(target) {
-					delete(s.succ, name)
 					native.close()
+					s.succ[name] = nil
+					s.onDelete[name] = native
+
 					cnt++
-					fmt.Printf("[AotService] delete native: %s\n", name)
+					// fmt.Printf("[AotService] delete native: %s\n", name)
 				}
 				if cnt >= 3 {
 					break
@@ -148,9 +159,24 @@ func (s *AotService) loop() {
 			}
 			s.lock.Unlock()
 
-			t.Reset(d)
+			t1.Reset(d1)
+
+		case <-t2.C:
+			s.lock.Lock()
+			for name, native := range s.onDelete {
+				if native.count() == 0 {
+					delete(s.onDelete, name)
+					delete(s.succ, name)
+					delete(s.black, name)
+					// fmt.Printf("[AotService] delete %s done\n", name)
+				}
+			}
+			s.lock.Unlock()
+			t2.Reset(d2)
+
 		case <-s.exit:
-			t.Stop()
+			t1.Stop()
+			t2.Stop()
 			fmt.Printf("[AotService] Exit\n")
 			return
 		}
@@ -158,10 +184,6 @@ func (s *AotService) loop() {
 }
 
 func (s *AotService) doCheck(app *APP) error {
-	if app.native != nil {
-		return nil
-	}
-
 	info := s.getContractInfo(app)
 	if info == nil {
 		return s.doWork(app)
@@ -184,10 +206,8 @@ func (s *AotService) doCheck(app *APP) error {
 	stat, err := os.Stat(info.Path)
 	if err != nil {
 		app.Printf("[AotService] os.Stat %s fail: app:%s, err:%s", info.Path, app.Name, err)
-		if os.ErrNotExist == err {
-			return s.doWork(app)
-		}
-		return err
+		os.Remove(info.Path)
+		return s.doWork(app)
 	}
 	if stat.IsDir() {
 		app.Printf("[AotService] %s is dir, skip it: app:%s", info.Path, app.Name)
@@ -240,12 +260,10 @@ func (s *AotService) doLoad(app *APP, info *ContractInfo) error {
 	s.updateContractInfo(app, info)
 
 	if native != nil {
+		app.Printf("[AotService] NewNative ok: app:%s", app.Name)
 		s.lock.Lock()
 		s.succ[app.Name] = native
 		s.lock.Unlock()
-
-		app.native = native
-		app.Printf("[AotService] NewNative ok: app:%s", app.Name)
 	}
 	return err
 }

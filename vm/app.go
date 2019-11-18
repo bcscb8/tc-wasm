@@ -65,6 +65,11 @@ func (app *APP) Clone(eng *Engine) *APP {
 	return newApp
 }
 
+// Close --
+func (app *APP) Close() {
+	app.native.close()
+}
+
 // NewApp new wasm app module
 func NewApp(name string, code []byte, eng *Engine, debug bool, logger log.Logger) (*APP, error) {
 	if debug {
@@ -205,19 +210,19 @@ func (app *APP) Run(action, args string) (uint64, error) {
 
 	if action == "" && args == "" {
 		return app.RunF(fnIndex)
-	} else {
-		vmem := app.VM.VMemory()
-		actionPointer, err := vmem.SetBytes([]byte(action))
-		if err != nil {
-			return 0, err
-		}
-		argsPointer, err := vmem.SetBytes([]byte(args))
-		if err != nil {
-			return 0, err
-		}
-		params := []uint64{uint64(actionPointer), uint64(argsPointer)}
-		return app.RunF(fnIndex, params...)
 	}
+
+	vmem := app.VM.VMemory()
+	actionPointer, err := vmem.SetBytes([]byte(action))
+	if err != nil {
+		return 0, err
+	}
+	argsPointer, err := vmem.SetBytes([]byte(args))
+	if err != nil {
+		return 0, err
+	}
+	params := []uint64{uint64(actionPointer), uint64(argsPointer)}
+	return app.RunF(fnIndex, params...)
 }
 
 // RunF execute function code based on specific fnInex.

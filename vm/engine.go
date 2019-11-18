@@ -198,13 +198,8 @@ func (eng *Engine) Run(app *APP, input []byte) (uint64, error) {
 }
 
 func (eng *Engine) run(app *APP, action, args string) (ret uint64, err error) {
-	if string(action) == "Init" || string(action) == "init" {
-		if !eng.Contract.CreateCall {
-			return 0, ErrInitEngine
-		}
-	}
-
 	defer func() {
+		app.Close()
 		if r := recover(); r != nil {
 			eng.logger.Debug("[Engine] run recover", "frame_index", eng.FrameIndex, "running_app", eng.runningFrame.Name, "bt", string(debug.Stack()))
 			switch e := r.(type) {
@@ -215,6 +210,12 @@ func (eng *Engine) run(app *APP, action, args string) (ret uint64, err error) {
 			}
 		}
 	}()
+
+	if string(action) == "Init" || string(action) == "init" {
+		if !eng.Contract.CreateCall {
+			return 0, ErrInitEngine
+		}
+	}
 
 	if eng.runningFrame != nil {
 		if eng.runningFrame.Name == app.Name {

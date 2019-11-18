@@ -85,6 +85,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -98,8 +99,7 @@ const wasmPageSize = 65536 // (64 KB)
 type Native struct {
 	app    *APP
 	logger log.Logger
-	file   string
-	dl     unsafe.Pointer
+	dl     *dynamicLib
 	t      time.Time
 	ret    uint64
 }
@@ -116,34 +116,32 @@ func NewNative(app *APP, file string) (*Native, error) {
 
 	native := &Native{
 		app:    app,
-		file:   file,
-		dl:     handle,
 		logger: app.logger,
 		t:      time.Now(),
 	}
 
-	if !native.hasCMain() {
+	if ret := C.has_main_func(handle); ret < 0 {
 		C.dlclose(handle)
-		native.dl = nil
 		return nil, fmt.Errorf("%s Without CMain function", file)
 	}
 
+	native.dl = newDynamicLib(file, handle)
 	return native, nil
 }
 
 func (native *Native) close() {
-	if native.dl != nil {
-		C.dlclose(native.dl)
-		native.dl = nil
+	if native != nil {
+		native.dl.free()
 	}
 }
 
 func (native *Native) remove() {
-	if native.dl != nil {
-		C.dlclose(native.dl)
-		native.dl = nil
-	}
-	os.Remove(native.file)
+	native.dl.setDelete()
+	native.dl.free()
+}
+
+func (native *Native) count() uint64 {
+	return native.dl.count()
 }
 
 func (native *Native) clone(app *APP) *Native {
@@ -151,21 +149,19 @@ func (native *Native) clone(app *APP) *Native {
 		return nil
 	}
 
+	dl := native.dl.get()
+	if dl == nil {
+		return nil
+	}
+
+	t := time.Now()
+	native.t = t
 	return &Native{
 		app:    app,
 		logger: app.logger,
-		file:   native.file,
-		dl:     native.dl,
-		t:      time.Now(),
+		dl:     dl,
+		t:      t,
 	}
-}
-
-func (native *Native) hasCMain() bool {
-	ret := C.has_main_func(native.dl)
-	if ret > 0 {
-		return true
-	}
-	return false
 }
 
 // RunCMain --
@@ -188,7 +184,7 @@ func (native *Native) RunCMain(action, args string) (ret uint64, err error) {
 	data := []uint64{eng.gas, eng.gasUsed, pages, actionP, argsP}
 
 	ptrs := make([]uintptr, 6)
-	ptrs[0] = uintptr(native.dl)
+	ptrs[0] = uintptr(native.dl.so)
 	ptrs[1] = uintptr(unsafe.Pointer(native))
 	ptrs[2] = uintptr(unsafe.Pointer(&data[0]))
 	ptrs[3] = uintptr(unsafe.Pointer(&mem.Memory[0]))
@@ -372,4 +368,83 @@ func GoFunc(cvm *C.vm_t, cname *C.char, cArgn C.int32_t, cArgs *C.uint64_t) uint
 	updateMem(cvm, native)
 	native.app.logger.Debug("[GoFunc] Call() ok", "app", native.name(), "name", name, "cost", cost)
 	return ret
+}
+
+// -----------------------------
+
+type dynamicLib struct {
+	sync.Mutex
+	isDelete bool
+	ref      uint64
+	file     string
+	so       unsafe.Pointer
+}
+
+func newDynamicLib(file string, so unsafe.Pointer) *dynamicLib {
+	return &dynamicLib{
+		ref:  1,
+		file: file,
+		so:   so,
+	}
+}
+
+func (dl *dynamicLib) count() uint64 {
+	if dl == nil {
+		return 0
+	}
+
+	dl.Lock()
+	ref := dl.ref
+	dl.Unlock()
+	return ref
+}
+
+func (dl *dynamicLib) get() *dynamicLib {
+	if dl == nil {
+		return nil
+	}
+
+	dl.Lock()
+	defer dl.Unlock()
+
+	if dl.isDelete {
+		return nil
+	}
+
+	dl.ref++
+	return dl
+}
+
+func (dl *dynamicLib) free() {
+	if dl == nil {
+		return
+	}
+
+	dl.Lock()
+	defer dl.Unlock()
+
+	dl.ref--
+	if dl.ref == 0 {
+		if dl.so != nil {
+			C.dlclose(dl.so)
+			dl.so = nil
+			fmt.Printf("[dynamicLib] dlclose %s\n", dl.file)
+		}
+		if dl.isDelete {
+			os.Remove(dl.file)
+			dl.isDelete = false
+			fmt.Printf("[dynamicLib] remove %s\n", dl.file)
+		}
+	}
+
+}
+
+func (dl *dynamicLib) setDelete() {
+	if dl == nil {
+		return
+	}
+
+	dl.Lock()
+	dl.isDelete = true
+	dl.Unlock()
 }
