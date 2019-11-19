@@ -150,6 +150,9 @@ func (s *AotService) loop() {
 
 			s.lock.Lock()
 			for name, native := range s.succ {
+				if native == nil {
+					continue
+				}
 				if native.t.Before(target) {
 					s.succ[name] = nil
 					s.onDelete[name] = native
