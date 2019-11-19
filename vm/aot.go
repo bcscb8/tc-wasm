@@ -43,7 +43,7 @@ func NewAotService(path string, keepSrouce bool) *AotService {
 		path:        path,
 		keepCSource: keepSrouce,
 		exit:        make(chan struct{}),
-		refresh:     make(chan *APP, 8),
+		refresh:     make(chan *APP, 4),
 		black:       make(map[string]struct{}),
 		succ:        make(map[string]*Native, 32),
 		onDelete:    make(map[string]*Native, 8),
@@ -83,10 +83,17 @@ type ContractInfo struct {
 }
 
 func (s *AotService) checkApp(app *APP) {
-	select {
-	case s.refresh <- app:
-	default:
+	s.lock.Lock()
+	if _, ok := s.black[app.Name]; !ok {
+		if _, ok := s.succ[app.Name]; !ok {
+			s.succ[app.Name] = nil
+			select {
+			case s.refresh <- app:
+			default:
+			}
+		}
 	}
+	s.lock.Unlock()
 }
 
 func (s *AotService) getNative(app *APP) *Native {
@@ -100,13 +107,20 @@ func (s *AotService) getNative(app *APP) *Native {
 func (s *AotService) deleteNative(app *APP) {
 	s.lock.Lock()
 
-	native := s.succ[app.Name]
-	if native != nil {
-		s.onDelete[app.Name] = native
-		s.succ[app.Name] = nil
-		native.remove()
-		app.Printf("[AotService] deleteNative begin: app:%s, md5:%s", app.Name, hex.EncodeToString(app.md5[:]))
-		s.logger = app.logger
+	native := s.onDelete[app.Name]
+	if native == nil {
+		native = s.succ[app.Name]
+		if native != nil {
+			s.onDelete[app.Name] = native
+			s.succ[app.Name] = nil
+			native.remove()
+
+			app.Printf("[AotService] deleteNative begin: app:%s, md5:%s", app.Name, hex.EncodeToString(app.md5[:]))
+			s.logger = app.logger
+		} else {
+			delete(s.succ, app.Name)
+			delete(s.black, app.Name)
+		}
 	}
 
 	s.lock.Unlock()

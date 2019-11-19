@@ -52,7 +52,6 @@ type APP struct {
 
 // Clone just copy
 func (app *APP) Clone(eng *Engine) *APP {
-	RefreshApp(app)
 	vm := app.VM.Clone(eng)
 	vm.RecoverPanic = true
 	newApp := &APP{
@@ -66,6 +65,9 @@ func (app *APP) Clone(eng *Engine) *APP {
 		md5:       app.md5,
 	}
 	newApp.native = GetNative(newApp)
+	if newApp.native == nil {
+		RefreshApp(app)
+	}
 	return newApp
 }
 
