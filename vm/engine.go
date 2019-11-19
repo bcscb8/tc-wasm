@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -160,6 +161,7 @@ func (eng *Engine) NewApp(name string, code []byte, debug bool) (*APP, error) {
 	}
 
 	eng.AppCache.Store(name, app)
+	eng.logger.Info("[Engine] NewApp ok", "app", name, "md5", hex.EncodeToString(app.md5[:]))
 
 	return app.Clone(eng), nil
 }

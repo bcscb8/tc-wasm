@@ -2,6 +2,7 @@ package vm
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/binary"
 	"fmt"
 
@@ -45,6 +46,8 @@ type APP struct {
 	native *Native
 
 	result interface{}
+
+	md5 [16]byte
 }
 
 // Clone just copy
@@ -60,6 +63,7 @@ func (app *APP) Clone(eng *Engine) *APP {
 		VM:        vm,
 		VmProcess: exec.NewProcess(vm),
 		EntryFunc: app.EntryFunc,
+		md5:       app.md5,
 	}
 	newApp.native = GetNative(newApp)
 	return newApp
@@ -89,6 +93,8 @@ func NewApp(name string, code []byte, eng *Engine, debug bool, logger log.Logger
 		return nil, fmt.Errorf("validate.VerifyMoudle fail: %s", err)
 	}
 
+	md5 := md5.Sum(code)
+
 	app := &APP{
 		logger:    logger,
 		Name:      name,
@@ -96,6 +102,7 @@ func NewApp(name string, code []byte, eng *Engine, debug bool, logger log.Logger
 		Module:    m,
 		Eng:       eng,
 		EntryFunc: APPEntry,
+		md5:       md5,
 	}
 
 	vm, err := exec.NewVM(m, eng)

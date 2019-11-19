@@ -125,7 +125,7 @@ func NewNative(app *APP, file string) (*Native, error) {
 		return nil, fmt.Errorf("%s Without CMain function", file)
 	}
 
-	native.dl = newDynamicLib(file, handle)
+	native.dl = newDynamicLib(file, handle, app.logger)
 	return native, nil
 }
 
@@ -378,13 +378,15 @@ type dynamicLib struct {
 	ref      uint64
 	file     string
 	so       unsafe.Pointer
+	logger   log.Logger
 }
 
-func newDynamicLib(file string, so unsafe.Pointer) *dynamicLib {
+func newDynamicLib(file string, so unsafe.Pointer, logger log.Logger) *dynamicLib {
 	return &dynamicLib{
-		ref:  1,
-		file: file,
-		so:   so,
+		ref:    1,
+		file:   file,
+		so:     so,
+		logger: logger,
 	}
 }
 
@@ -408,6 +410,7 @@ func (dl *dynamicLib) get() *dynamicLib {
 	defer dl.Unlock()
 
 	if dl.isDelete {
+		dl.logger.Printf("[dynamicLib] deleting %s", dl.file)
 		return nil
 	}
 
@@ -428,12 +431,12 @@ func (dl *dynamicLib) free() {
 		if dl.so != nil {
 			C.dlclose(dl.so)
 			dl.so = nil
-			fmt.Printf("[dynamicLib] dlclose %s\n", dl.file)
+			dl.logger.Printf("[dynamicLib] dlclose %s", dl.file)
 		}
 		if dl.isDelete {
 			os.Remove(dl.file)
-			dl.isDelete = false
-			fmt.Printf("[dynamicLib] remove %s\n", dl.file)
+			// dl.isDelete = false
+			dl.logger.Printf("[dynamicLib] remove %s", dl.file)
 		}
 	}
 

@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-interpreter/wagon/exec"
 
+	"github.com/xunleichain/tc-wasm/mock/log"
 	"github.com/xunleichain/tc-wasm/mock/types"
 )
 
@@ -27,6 +28,7 @@ type AotService struct {
 	succ     map[string]*Native
 	onDelete map[string]*Native
 	lock     sync.Mutex
+	logger   log.Logger
 }
 
 // Env Variable
@@ -103,6 +105,8 @@ func (s *AotService) deleteNative(app *APP) {
 		s.onDelete[app.Name] = native
 		s.succ[app.Name] = nil
 		native.remove()
+		app.Printf("[AotService] deleteNative begin: app:%s, md5:%s", app.Name, hex.EncodeToString(app.md5[:]))
+		s.logger = app.logger
 	}
 
 	s.lock.Unlock()
@@ -135,6 +139,7 @@ func (s *AotService) loop() {
 			s.lock.Unlock()
 
 			if n == nil {
+				app.Printf("[AotService] doCheck: app:%s, md5:%s", app.Name, hex.EncodeToString(app.md5[:]))
 				s.doCheck(app)
 			}
 
@@ -146,9 +151,9 @@ func (s *AotService) loop() {
 			s.lock.Lock()
 			for name, native := range s.succ {
 				if native.t.Before(target) {
-					native.close()
 					s.succ[name] = nil
 					s.onDelete[name] = native
+					native.close()
 
 					cnt++
 					// fmt.Printf("[AotService] delete native: %s\n", name)
@@ -168,7 +173,7 @@ func (s *AotService) loop() {
 					delete(s.onDelete, name)
 					delete(s.succ, name)
 					delete(s.black, name)
-					// fmt.Printf("[AotService] delete %s done\n", name)
+					s.logger.Info("[AotService] deleteNative done", "app", name)
 				}
 			}
 			s.lock.Unlock()
@@ -260,7 +265,7 @@ func (s *AotService) doLoad(app *APP, info *ContractInfo) error {
 	s.updateContractInfo(app, info)
 
 	if native != nil {
-		app.Printf("[AotService] NewNative ok: app:%s", app.Name)
+		app.Printf("[AotService] NewNative ok: app:%s, md5:%s", app.Name, hex.EncodeToString(app.md5[:]))
 		s.lock.Lock()
 		s.succ[app.Name] = native
 		s.lock.Unlock()
@@ -274,13 +279,12 @@ func (s *AotService) doCompile(app *APP) (*ContractInfo, error) {
 		Err:  "",
 	}
 
-	exec.SetCGenLogger(app.logger) // for debug
+	// exec.SetCGenLogger(app.logger) // for debug
 	ctx := exec.NewCGenContext(app.VM, s.keepCSource)
-
 	// @Todo: for debug
-	if app.Name == "0x00000000000000000000466f756e646174696f6e" {
-		ctx.EnableComment(true)
-	}
+	// if app.Name == "0x00000000000000000000466f756e646174696f6e" {
+	// 	ctx.EnableComment(true)
+	// }
 
 	code, err := ctx.Generate()
 	if err != nil {
@@ -296,7 +300,7 @@ func (s *AotService) doCompile(app *APP) (*ContractInfo, error) {
 
 	info.Path = file
 	info.MD5 = md5.Sum(code)
-	app.Printf("[AotService] doCompile ok: app:%s", app.Name)
+	app.Printf("[AotService] doCompile ok: app:%s, md5:%s, so_md5:%s", app.Name, hex.EncodeToString(app.md5[:]), hex.EncodeToString(info.MD5[:]))
 	return &info, nil
 }
 
