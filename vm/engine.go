@@ -232,7 +232,7 @@ func (eng *Engine) run(app *APP, action, args string) (ret uint64, err error) {
 	eng.runningFrame = app
 	ret, err = app.Run(action, args)
 	eng.runningFrame, _ = eng.PopAppFrame()
-	eng.logger.Debug("[Engine] Run end", "frame_index", eng.FrameIndex, "app", app.Name, "ret", ret, "err", err)
+	eng.logger.Debug("[Engine] Run end", "frame_index", eng.FrameIndex, "app", app.Name, "ret", ret, "err", err, "gas", eng.gas, "gas_used", eng.gasUsed)
 
 	return ret, err
 }
