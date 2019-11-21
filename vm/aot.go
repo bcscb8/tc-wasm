@@ -31,10 +31,12 @@ type AotService struct {
 }
 
 // Env Variable
+const TCVM_AOTS_ENABLE = "TCVM_AOTS_ENABLE"
 const TCVM_AOTS_ROOT = "TCVM_AOTS_ROOT"
 const TCVM_AOTS_KEEP_CSOURCE = "TCVM_AOTS_KEEP_CSOURCE"
 
 var aots *AotService
+var enableAots bool
 
 // NewAotService --
 func NewAotService(path string, keepSrouce bool) *AotService {
@@ -82,6 +84,10 @@ type ContractInfo struct {
 }
 
 func (s *AotService) checkApp(app *APP) {
+	if !enableAots {
+		return
+	}
+
 	name := app.String()
 	s.lock.Lock()
 	if _, ok := s.black[name]; !ok {
@@ -97,6 +103,9 @@ func (s *AotService) checkApp(app *APP) {
 }
 
 func (s *AotService) getNative(app *APP) *Native {
+	if !enableAots {
+		return nil
+	}
 	name := app.String()
 
 	s.lock.Lock()
@@ -107,6 +116,10 @@ func (s *AotService) getNative(app *APP) *Native {
 }
 
 func (s *AotService) deleteNative(app *APP) {
+	if !enableAots {
+		return
+	}
+
 	name := app.String()
 	s.lock.Lock()
 
@@ -392,6 +405,11 @@ func init() {
 	keepSource := true
 	if os.Getenv(TCVM_AOTS_KEEP_CSOURCE) == "0" {
 		keepSource = false
+	}
+
+	if os.Getenv(TCVM_AOTS_ENABLE) == "1" {
+		fmt.Printf("Enable AotService\n")
+		enableAots = true
 	}
 
 	aots = NewAotService(path, keepSource)
