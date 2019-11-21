@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -161,7 +160,7 @@ func (eng *Engine) NewApp(name string, code []byte, debug bool) (*APP, error) {
 	}
 
 	eng.AppCache.Store(name, app)
-	eng.logger.Info("[Engine] NewApp ok", "app", name, "md5", hex.EncodeToString(app.md5[:]))
+	eng.logger.Info("[Engine] NewApp ok", "app", app.String())
 
 	return app.Clone(eng), nil
 }
@@ -203,7 +202,7 @@ func (eng *Engine) run(app *APP, action, args string) (ret uint64, err error) {
 	defer func() {
 		app.Close()
 		if r := recover(); r != nil {
-			eng.logger.Debug("[Engine] run recover", "frame_index", eng.FrameIndex, "running_app", eng.runningFrame.Name, "bt", string(debug.Stack()))
+			eng.logger.Debug("[Engine] run recover", "frame_index", eng.FrameIndex, "running_app", eng.runningFrame.String(), "bt", string(debug.Stack()))
 			switch e := r.(type) {
 			case error:
 				err = e
@@ -228,11 +227,11 @@ func (eng *Engine) run(app *APP, action, args string) (ret uint64, err error) {
 		}
 	}
 
-	eng.logger.Debug("[Engine] Run begin", "frame_index", eng.FrameIndex, "app", app.Name)
+	eng.logger.Debug("[Engine] Run begin", "frame_index", eng.FrameIndex, "app", app.String())
 	eng.runningFrame = app
 	ret, err = app.Run(action, args)
 	eng.runningFrame, _ = eng.PopAppFrame()
-	eng.logger.Debug("[Engine] Run end", "frame_index", eng.FrameIndex, "app", app.Name, "ret", ret, "err", err, "gas", eng.gas, "gas_used", eng.gasUsed)
+	eng.logger.Debug("[Engine] Run end", "frame_index", eng.FrameIndex, "app", app.String(), "ret", ret, "err", err, "gas", eng.gas, "gas_used", eng.gasUsed)
 
 	return ret, err
 }

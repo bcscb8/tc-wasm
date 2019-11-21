@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/go-interpreter/wagon/disasm"
@@ -74,6 +75,10 @@ func (app *APP) Clone(eng *Engine) *APP {
 // Close --
 func (app *APP) Close() {
 	app.native.close()
+}
+
+func (app *APP) String() string {
+	return fmt.Sprintf("%s-%s", app.Name, hex.EncodeToString(app.md5[:]))
 }
 
 // NewApp new wasm app module

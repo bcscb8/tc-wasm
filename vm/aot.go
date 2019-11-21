@@ -14,7 +14,6 @@ import (
 	"github.com/go-interpreter/wagon/exec"
 
 	"github.com/xunleichain/tc-wasm/mock/log"
-	"github.com/xunleichain/tc-wasm/mock/types"
 )
 
 // AotService --
@@ -83,10 +82,11 @@ type ContractInfo struct {
 }
 
 func (s *AotService) checkApp(app *APP) {
+	name := app.String()
 	s.lock.Lock()
-	if _, ok := s.black[app.Name]; !ok {
-		if _, ok := s.succ[app.Name]; !ok {
-			s.succ[app.Name] = nil
+	if _, ok := s.black[name]; !ok {
+		if _, ok := s.succ[name]; !ok {
+			s.succ[name] = nil
 			select {
 			case s.refresh <- app:
 			default:
@@ -97,29 +97,32 @@ func (s *AotService) checkApp(app *APP) {
 }
 
 func (s *AotService) getNative(app *APP) *Native {
+	name := app.String()
+
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	native := s.succ[app.Name]
+	native := s.succ[name]
 	return native.clone(app)
 }
 
 func (s *AotService) deleteNative(app *APP) {
+	name := app.String()
 	s.lock.Lock()
 
-	native := s.onDelete[app.Name]
+	native := s.onDelete[name]
 	if native == nil {
-		native = s.succ[app.Name]
+		native = s.succ[name]
 		if native != nil {
-			s.onDelete[app.Name] = native
-			s.succ[app.Name] = nil
+			s.onDelete[name] = native
+			s.succ[name] = nil
 			native.remove()
 
-			app.Printf("[AotService] deleteNative begin: app:%s, md5:%s", app.Name, hex.EncodeToString(app.md5[:]))
+			app.Printf("[AotService] deleteNative begin: app:%s", name)
 			s.logger = app.logger
 		} else {
-			delete(s.succ, app.Name)
-			delete(s.black, app.Name)
+			// delete(s.succ, name)
+			// delete(s.black, name)
 		}
 	}
 
@@ -138,22 +141,23 @@ func (s *AotService) loop() {
 	for {
 		select {
 		case app := <-s.refresh:
+			name := app.String()
 			s.lock.Lock()
-			if _, ok := s.black[app.Name]; ok {
+			if _, ok := s.black[name]; ok {
 				s.lock.Unlock()
 				continue
 			}
 
-			if _, ok := s.onDelete[app.Name]; ok {
+			if _, ok := s.onDelete[name]; ok {
 				s.lock.Unlock()
 				continue
 			}
 
-			n := s.succ[app.Name]
+			n := s.succ[name]
 			s.lock.Unlock()
 
 			if n == nil {
-				app.Printf("[AotService] doCheck: app:%s, md5:%s", app.Name, hex.EncodeToString(app.md5[:]))
+				app.Printf("[AotService] doCheck: app:%s", name)
 				s.doCheck(app)
 			}
 
@@ -211,28 +215,29 @@ func (s *AotService) doCheck(app *APP) error {
 		return s.doWork(app)
 	}
 
+	name := app.String()
 	// @Note: now we only support wasm
 	if info.Type != "wasm" {
-		app.Printf("[AotService] Not wasm contract, skip it: app:%s", app.Name)
+		app.Printf("[AotService] Not wasm contract, skip it: app:%s", name)
 		return nil
 	}
 
 	if info.Err != "" {
-		app.Printf("[AotService] ContractInfo Has Err: app:%s, err:%s", app.Name, info.Err)
+		app.Printf("[AotService] ContractInfo Has Err: app:%s, err:%s", name, info.Err)
 		s.lock.Lock()
-		s.black[app.Name] = struct{}{}
+		s.black[name] = struct{}{}
 		s.lock.Unlock()
 		return fmt.Errorf(info.Err)
 	}
 
 	stat, err := os.Stat(info.Path)
 	if err != nil {
-		app.Printf("[AotService] os.Stat %s fail: app:%s, err:%s", info.Path, app.Name, err)
+		app.Printf("[AotService] os.Stat %s fail: app:%s, err:%s", info.Path, name, err)
 		os.Remove(info.Path)
 		return s.doWork(app)
 	}
 	if stat.IsDir() {
-		app.Printf("[AotService] %s is dir, skip it: app:%s", info.Path, app.Name)
+		app.Printf("[AotService] %s is dir, skip it: app:%s", info.Path, name)
 		if err = os.Remove(info.Path); err != nil {
 			return err
 		}
@@ -264,7 +269,7 @@ func (s *AotService) doCheck(app *APP) error {
 func (s *AotService) doWork(app *APP) error {
 	info, err := s.doCompile(app)
 	if err != nil {
-		app.Printf("[AotService] %s: app:%s, err:%s", info.Err, app.Name, err)
+		app.Printf("[AotService] %s: app:%s, err:%s", info.Err, app.String(), err)
 		s.updateContractInfo(app, info)
 		return err
 	}
@@ -275,16 +280,16 @@ func (s *AotService) doWork(app *APP) error {
 func (s *AotService) doLoad(app *APP, info *ContractInfo) error {
 	native, err := NewNative(app, info.Path)
 	if err != nil {
-		app.Printf("[AotService] NewNative fail: app:%s, err:%s", app.Name, err)
+		app.Printf("[AotService] NewNative fail: app:%s, err:%s", app.String(), err)
 		info.Err = "NewNative Fail"
 	}
 
 	s.updateContractInfo(app, info)
 
 	if native != nil {
-		app.Printf("[AotService] NewNative ok: app:%s, md5:%s", app.Name, hex.EncodeToString(app.md5[:]))
+		app.Printf("[AotService] NewNative ok: app:%s, md5:%s", app.String(), hex.EncodeToString(app.md5[:]))
 		s.lock.Lock()
-		s.succ[app.Name] = native
+		s.succ[app.String()] = native
 		s.lock.Unlock()
 	}
 	return err
@@ -300,7 +305,7 @@ func (s *AotService) doCompile(app *APP) (*ContractInfo, error) {
 	ctx := exec.NewCGenContext(app.VM, s.keepCSource)
 	// @Todo: for debug
 	// if app.Name == "0x00000000000000000000466f756e646174696f6e" {
-	// 	ctx.EnableComment(true)
+	// ctx.EnableComment(true)
 	// }
 
 	code, err := ctx.Generate()
@@ -309,7 +314,8 @@ func (s *AotService) doCompile(app *APP) (*ContractInfo, error) {
 		return &info, err
 	}
 
-	file, err := ctx.Compile(code, s.path, app.Name)
+	name := app.String()
+	file, err := ctx.Compile(code, s.path, name)
 	if err != nil {
 		info.Err = "Compile C Code Fail"
 		return &info, err
@@ -317,7 +323,7 @@ func (s *AotService) doCompile(app *APP) (*ContractInfo, error) {
 
 	info.Path = file
 	info.MD5 = md5.Sum(code)
-	app.Printf("[AotService] doCompile ok: app:%s, md5:%s, so_md5:%s", app.Name, hex.EncodeToString(app.md5[:]), hex.EncodeToString(info.MD5[:]))
+	app.Printf("[AotService] doCompile ok: app:%s, so_md5:%s", name, hex.EncodeToString(info.MD5[:]))
 	return &info, nil
 }
 
@@ -330,9 +336,11 @@ const (
 )
 
 func (s *AotService) updateContractInfo(app *APP, info *ContractInfo) {
+	name := app.String()
+
 	if info.Err != "" {
 		s.lock.Lock()
-		s.black[app.Name] = struct{}{}
+		s.black[name] = struct{}{}
 		s.lock.Unlock()
 	}
 
@@ -342,18 +350,19 @@ func (s *AotService) updateContractInfo(app *APP, info *ContractInfo) {
 		return
 	}
 
-	key := make([]byte, types.AddressLength+contractInfoPrefixLen)
+	key := make([]byte, contractInfoPrefixLen+len(name))
 	copy(key[:contractInfoPrefixLen], contractInfoPrefix)
-	copy(key[contractInfoPrefixLen:], types.HexToAddress(app.Name).Bytes())
+	copy(key[contractInfoPrefixLen:], []byte(name))
 
 	stateDB := app.Eng.State
 	stateDB.SetContractInfo(key, data)
 }
 
 func (s *AotService) getContractInfo(app *APP) *ContractInfo {
-	key := make([]byte, types.AddressLength+contractInfoPrefixLen)
+	name := app.String()
+	key := make([]byte, contractInfoPrefixLen+len(name))
 	copy(key[:contractInfoPrefixLen], contractInfoPrefix)
-	copy(key[contractInfoPrefixLen:], types.HexToAddress(app.Name).Bytes())
+	copy(key[contractInfoPrefixLen:], []byte(name))
 
 	stateDB := app.Eng.State
 	data := stateDB.GetContractInfo(key)
@@ -363,7 +372,7 @@ func (s *AotService) getContractInfo(app *APP) *ContractInfo {
 
 	var info ContractInfo
 	if err := json.Unmarshal(data, &info); err != nil {
-		app.Printf("[AotService] json.Unmarshal ContractInfo fail: app:%s, err:%s", app.Name, err)
+		app.Printf("[AotService] json.Unmarshal ContractInfo fail: app:%s, err:%s", name, err)
 		return nil
 	}
 	return &info

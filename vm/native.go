@@ -193,7 +193,7 @@ func (native *Native) RunCMain(action, args string) (ret uint64, err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			eng.logger.Debug("[Native] RunCMain recover", "frame_index", eng.FrameIndex, "running_app", eng.runningFrame.Name, "err", err, "bt", string(debug.Stack()))
+			eng.logger.Debug("[Native] RunCMain recover", "frame_index", eng.FrameIndex, "running_app", eng.runningFrame.String(), "err", err, "bt", string(debug.Stack()))
 			switch e := r.(type) {
 			case error:
 				err = e
@@ -219,7 +219,8 @@ func (native *Native) Printf(f string, args ...interface{}) {
 }
 
 func (native *Native) name() string {
-	return native.app.Name
+	return native.app.String()
+	// return native.app.Name
 }
 
 func (native *Native) engine() *Engine {
@@ -366,7 +367,7 @@ func GoFunc(cvm *C.vm_t, cname *C.char, cArgn C.int32_t, cArgs *C.uint64_t) uint
 
 	updateGas(cvm, eng.gas, eng.gasUsed)
 	updateMem(cvm, native)
-	native.app.logger.Debug("[GoFunc] Call() ok", "app", native.name(), "name", name, "cost", cost)
+	// native.app.logger.Debug("[GoFunc] Call() ok", "app", native.name(), "name", name, "cost", cost)
 	return ret
 }
 
