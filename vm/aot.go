@@ -207,7 +207,7 @@ func (s *AotService) loop() {
 					delete(s.onDelete, name)
 					delete(s.succ, name)
 					delete(s.black, name)
-					s.logger.Info("[AotService] deleteNative done", "app", name)
+					// s.logger.Info("[AotService] deleteNative done", "app", name)
 				}
 			}
 			s.lock.Unlock()
@@ -317,9 +317,9 @@ func (s *AotService) doCompile(app *APP) (*ContractInfo, error) {
 	// exec.SetCGenLogger(app.logger) // for debug
 	ctx := exec.NewCGenContext(app.VM, s.keepCSource)
 	// @Todo: for debug
-	// if app.Name == "0x00000000000000000000466f756e646174696f6e" {
-	// ctx.EnableComment(true)
-	// }
+	if app.Name == "0x0000000000000000000000000000506c65646765" {
+		ctx.EnableComment(true)
+	}
 
 	code, err := ctx.Generate()
 	if err != nil {

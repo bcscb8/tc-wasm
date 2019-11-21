@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"github.com/go-interpreter/wagon/exec"
 	"github.com/xunleichain/tc-wasm/mock/log"
 	"github.com/xunleichain/tc-wasm/mock/types"
 )
@@ -225,6 +226,14 @@ func (eng *Engine) run(app *APP, action, args string) (ret uint64, err error) {
 		if _, err := eng.PushAppFrame(eng.runningFrame); err != nil {
 			return 0, err
 		}
+	}
+
+	if app.Name == "0x0000000000000000000000000000506c65646765" {
+		fmt.Printf("thunderchain_main begin: %s %s\n", action, args)
+		exec.EnableVMDebug = true
+		defer func() {
+			exec.EnableVMDebug = false
+		}()
 	}
 
 	eng.logger.Debug("[Engine] Run begin", "frame_index", eng.FrameIndex, "app", app.String())
