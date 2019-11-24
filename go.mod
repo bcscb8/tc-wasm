@@ -3,7 +3,7 @@ module github.com/xunleichain/tc-wasm
 go 1.12
 
 // replace github.com/go-interpreter/wagon => github.com/xunleichain/wagon v0.5.3
-replace github.com/go-interpreter/wagon => github.com/bcscb8/wagon v0.0.0-20191121122502-952a3037ba55
+replace github.com/go-interpreter/wagon => github.com/bcscb8/wagon v0.0.0-20191123103537-7daae414c90b
 
 require (
 	github.com/go-interpreter/wagon v0.0.0
