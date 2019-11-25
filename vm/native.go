@@ -89,6 +89,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/go-interpreter/wagon/exec"
 	"github.com/go-interpreter/wagon/memory"
 	"github.com/xunleichain/tc-wasm/mock/log"
 )
@@ -278,7 +279,10 @@ func GoPanic(cvm *C.vm_t, cmsg *C.char) {
 	case "Abort":
 		panic(ErrContractAbort)
 	case "OutOfGas":
-		panic(ErrOutOfGas)
+		panic("[vm] execCode: OutOfGas")
+		// panic(ErrOutOfGas)
+	case "Unreachable":
+		panic(exec.ErrUnreachable)
 	default:
 		panic(msg)
 	}
