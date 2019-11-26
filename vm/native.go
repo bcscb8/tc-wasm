@@ -279,10 +279,11 @@ func GoPanic(cvm *C.vm_t, cmsg *C.char) {
 	case "Abort":
 		panic(ErrContractAbort)
 	case "OutOfGas":
-		panic("[vm] execCode: OutOfGas")
-		// panic(ErrOutOfGas)
+		panic("[vm] execCode: OutOfGas") // panic(ErrOutOfGas)
 	case "Unreachable":
 		panic(exec.ErrUnreachable)
+	case "ElemIndexOverflow":
+		panic(exec.ErrUndefinedElementIndex)
 	default:
 		panic(msg)
 	}
@@ -351,7 +352,7 @@ func GoFunc(cvm *C.vm_t, cname *C.char, cArgn C.int32_t, cArgs *C.uint64_t) uint
 	if err != nil {
 		native.Printf("[GoFunc] Gas() fail: app:%s, name:%s, err%s", native.name(), name, err)
 		eng.SetFee(preFee)
-		panic(err)
+		panic(fmt.Sprintf("[vm] execCode: calc gas fail: %s", err))
 	}
 
 	if !native.useGas(cost) {
@@ -360,7 +361,7 @@ func GoFunc(cvm *C.vm_t, cname *C.char, cArgn C.int32_t, cArgs *C.uint64_t) uint
 		currentFee := eng.GetFee() - preFee
 		realCost := cost - currentFee
 		eng.CalFee(realCost, currentFee)
-		panic(ErrOutOfGas)
+		panic("[vm] execCode: OutOfGas")
 	}
 
 	ret, err := envFunc.Call(index, eng, args)
