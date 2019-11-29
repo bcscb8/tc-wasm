@@ -32,6 +32,8 @@ github.com/bcscb8/wagon v0.0.0-20191123103537-7daae414c90b h1:QeyvFCtmZk9fO+u8cj
 github.com/bcscb8/wagon v0.0.0-20191123103537-7daae414c90b/go.mod h1:5+b/MBYkclRZngKF5s6qrgWxSLgE9F5dFdO1hAueZLc=
 github.com/bcscb8/wagon v0.0.0-20191125074634-8f22da8f276b h1:8CbsvXV+4LyNLsWe0hbR2Pvp8Ek3HnodkbhI0BeijJk=
 github.com/bcscb8/wagon v0.0.0-20191125074634-8f22da8f276b/go.mod h1:5+b/MBYkclRZngKF5s6qrgWxSLgE9F5dFdO1hAueZLc=
+github.com/bcscb8/wagon v0.0.0-20191129031105-7cb2f4b363ed h1:BJek2QCX7K+UvQs8cFxU9Ad/uSQck+jn4bANA0NhhOc=
+github.com/bcscb8/wagon v0.0.0-20191129031105-7cb2f4b363ed/go.mod h1:5+b/MBYkclRZngKF5s6qrgWxSLgE9F5dFdO1hAueZLc=
 github.com/edsrzf/mmap-go v1.0.0 h1:CEBF7HpRnUCSJgGUb5h1Gm7e3VkmVDrR8lvWVLtrOFw=
 github.com/edsrzf/mmap-go v1.0.0/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
 github.com/twitchyliquid64/golang-asm v0.0.0-20190126203739-365674df15fc h1:RTUQlKzoZZVG3umWNzOYeFecQLIh+dbxXvJp1zPQJTI=

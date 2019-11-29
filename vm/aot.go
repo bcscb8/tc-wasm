@@ -317,9 +317,9 @@ func (s *AotService) doCompile(app *APP) (*ContractInfo, error) {
 	// exec.SetCGenLogger(app.logger) // for debug
 	ctx := exec.NewCGenContext(app.VM, s.keepCSource)
 	// @Todo: for debug
-	if app.Name == "0x0000000000000000000000000000506c65646765" {
-		ctx.EnableComment(true)
-	}
+	// if app.Name == "0x0000000000000000000000000000506c65646765" {
+	// 	ctx.EnableComment(true)
+	// }
 
 	code, err := ctx.Generate()
 	if err != nil {

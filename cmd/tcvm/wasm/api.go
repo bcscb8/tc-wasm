@@ -187,7 +187,7 @@ func tcStoragePureSetBytes(eng *vm.Engine, index int64, args []uint64) (uint64, 
 	if err != nil {
 		return 0, vm.ErrMemoryGet
 	}
-	eng.Logger().Debug("TC_StoragePureSetBytes", "key", string(key), "size", len(key), "val", string(val), "size", len(val))
+	eng.Logger().Debug("TC_StoragePureSetBytes", "key", string(key), "size", len(key), "val", val, "size", len(val))
 
 	db.SetState(eng.Contract.Address(), types.Keccak256Hash(key), val)
 	return 0, nil
@@ -219,7 +219,7 @@ func tcStoragePureGet(eng *vm.Engine, index int64, args []uint64) (uint64, error
 	if err != nil {
 		return 0, vm.ErrMemorySet
 	}
-	eng.Logger().Debug("TC_StoragePureGet", "key", string(key), "val", string(val), "size", len(val))
+	eng.Logger().Debug("TC_StoragePureGet", "key", string(key), "val", val, "size", len(val))
 
 	return uint64(valPointer), nil
 }
